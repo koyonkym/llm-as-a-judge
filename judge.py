@@ -33,16 +33,12 @@ def extract_judge_score(answer: str, split_str: str = "Total rating:") -> int:
         print(e)
         return None
 
-# ## 3. Improve the LLM judge
-
 JUDGE_PROMPTS = []
 for i in range(10):
     try:
         JUDGE_PROMPTS.append(getattr(settings, "JUDGE_PROMPT_" + str(i+1)))
     except AttributeError:
         break
-
-ratings = ratings.head(1)
 
 for i in range(len(JUDGE_PROMPTS)):
     print("Judge", str(i+1))
@@ -54,11 +50,15 @@ for i in range(len(JUDGE_PROMPTS)):
         axis=1,
     )
     ratings["llm_judge_score_" + str(i+1)] = ratings["llm_judge_" + str(i+1)].apply(extract_judge_score)
+    # Get the non-null rows for both columns
+    non_null_rows = ratings[["llm_judge_score_" + str(i+1), "score_" + str(i+1)]].dropna()
+    print("Correlation between LLM-as-a-judge and the human raters:")
+    if len(non_null_rows) > 1 and non_null_rows["llm_judge_score_" + str(i+1)].std() != 0 and non_null_rows["score_" + str(i+1)].std() != 0:
+        print(f"{non_null_rows['llm_judge_score_' + str(i+1)].corr(non_null_rows['score_' + str(i+1)], method='pearson'):.3f}")
+    else:
+        print("No valid data points for correlation calculation")
 
 ratings.to_csv('out.csv', index=False)
-
-# print("Correlation between LLM-as-a-judge and the human raters:")
-# print(f"{examples['llm_judge_score'].corr(examples['human_score'], method='pearson'):.3f}")
 
 # errors = pd.concat(
 #     [
